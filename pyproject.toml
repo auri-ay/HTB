@@ -1,0 +1,35 @@
+[project]
+name = "htb"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "auri", email = "353008519+auri-ay@users.noreply.github.com" }
+]
+requires-python = ">=3.15"
+dependencies = [
+    "opencv-python>=5.0.0.93",
+    "pandas>=3.1.1",
+    "torch>=2.15.0",
+    "torchvision>=0.29.2",
+]
+
+[project.scripts]
+htb = "htb:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.4",
+]
+
+[tool.uv.sources]
+torch = {index = "pytorch"}
+torchvision = {index = "pytorch"}
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
