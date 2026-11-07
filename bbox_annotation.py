@@ -1,5 +1,5 @@
+import pathlib
 from typing import TypedDict, Any
-
 
 class BoundingBox(TypedDict):
     depth_column: list[int]
