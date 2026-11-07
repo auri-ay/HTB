@@ -69,6 +69,7 @@ source = { editable = "." }
 dependencies = [
     { name = "opencv-python" },
     { name = "pandas" },
+    { name = "pillow" },
     { name = "torch" },
     { name = "torchvision" },
 ]
@@ -82,6 +83,7 @@ dev = [
 requires-dist = [
     { name = "opencv-python", specifier = ">=5.0.0.93" },
     { name = "pandas", specifier = ">=3.1.1" },
+    { name = "pillow", specifier = ">=13.0.0" },
     { name = "torch", specifier = ">=2.15.0", index = "https://download.pytorch.org/whl/cu134" },
     { name = "torchvision", specifier = ">=0.29.2", index = "https://download.pytorch.org/whl/cu134" },
 ]
