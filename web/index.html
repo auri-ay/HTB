@@ -29,24 +29,51 @@
     <rect x="9" y="10" width="2" height="2" fill="#000"/>
     <rect x="12" y="9" width="2" height="2" fill="#000"/>
   </svg>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=close" />
 </header>
 
 <main>
+  <div id="floaty">
+    <div id="floaty-title">
+      <div id="offset"></div>
+      <h2 id="lithology"></h2>
+    </div>
+    <table>
+      <tr>
+        <th>Top Depth</th>
+        <th>Depth</th>
+        <th>Top Y</th>
+        <th>Y Height</th>
+      </tr>
+      <tr>
+        <td id="top-depth"></td>
+        <td id="depth"></td>
+        <td id="top-y"></td>
+        <td id="y-height"></td>
+      </tr>
+    </table>
+  </div>
   <section>
     <div class="panel">
       <h2>1. Image</h2>
-      <label class="file">
+      <label class="file" id="image-upload">
         <input type="file" id="image-file-input" accept="image/*,.tif,.tiff">
         <span id="image-file-name">Choose an image (TIFF, PNG or JPG)</span>
       </label>
+      <div id="image-preview-container">
+        <div id="preview-image-filename"></div>
+      </div>
     </div>
 
     <div class="panel">
       <h2>2. Annotation</h2>
-      <label class="file">
+      <label class="file" id="annotation-upload">
         <input type="file" id="annotation-file-input" accept=".json">
         <span id="annotaion-file-name">Choose an image (TIFF, PNG or JPG)</span>
       </label>
+      <div id="annotation-preview-container">
+        <div id="preview-annotation-filename"></div>
+      </div>
     </div>
 
     <div class="panel">

@@ -23,6 +23,7 @@
       radial-gradient(2px 2px at 140px 20px, #cdf 50%, transparent 51%),
       radial-gradient(1px 1px at 60px 130px, #fff 50%, transparent 51%);
     background-size: 160px 160px;
+    position: relative;
   }
 
   /* header */
@@ -142,4 +143,34 @@
     top: 0;
     left: 0;
     outline-offset: 8px;
+  }
+  #floaty{
+    position: absolute;
+    display: none;
+    background-color: var(--pink-soft);
+    z-index: 2;
+    pointer-events: none;
+  }
+  #lithology{
+    margin: 0;
+    padding: 0;
+  }
+  #offset{
+    width: 0.8rem;
+  }
+  #floaty-title{
+    display: flex;
+    flex-direction: row;
+  }
+  #image-preview-container{
+    display: none;
+    flex-direction: row;
+  }
+  #annotation-preview-container{
+    display: none;
+    flex-direction: row;
+  }
+  section{
+    display: flex;
+    flex-direction: column;
   }

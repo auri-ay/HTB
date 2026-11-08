@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TypedDict, NamedTuple
+from typing import TypedDict, NamedTuple, Any
 
 import pandas as pd
 from PIL import Image
@@ -8,13 +8,16 @@ from bbox_annotation import Annotation, Box
 
 
 class TableRow(TypedDict):
-    name: str
-    image: Path
-    width: int
-    height: int
-    depth_column: Box
-    interpreted_lithology_column: Box
-    lithology_legend: Box
+    top_depth: int
+    bottom_depth: int
+    lithology: str
+    top_y: int
+    bottom_y: int
+    cluster_id: int
+
+def table_row_from_json(dict: dict[str, Any]) -> TableRow:
+    return TableRow(top_depth=dict["top_depth"], bottom_depth=dict["bottom_depth"], lithology=dict["lithology"],
+                    top_y=dict["top_y"], bottom_y=dict["bottom_y"], cluster_id=dict["cluster_id"])
 
 
 class SizeMismatch(Exception):
