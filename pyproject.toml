@@ -21,6 +21,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "gunicorn>=26.2.0",
     "ruff>=0.17.4",
 ]
 
