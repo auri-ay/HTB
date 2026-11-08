@@ -15,6 +15,16 @@ const annotationUpload = document.getElementById("annotation-upload")
 const previewImageFilename = document.getElementById("preview-image-filename")
 const annotationPreviewContainer = document.getElementById("annotation-preview-container")
 const previewAnnotationFilename = document.getElementById("preview-annotation-filename")
+const legend = document.getElementById("legend")
+const legendEmpty = document.getElementById("legend-empty")
+const reset = document.getElementById("reset")
+
+reset.onclick=()=>{
+    imageFileInput.value=""
+    annotation.value=""
+    imageFileInput.onchange()
+    annotation.onchange()
+}
 
 let imageLoaded = null;
 let jsonLoaded = null;
@@ -22,16 +32,16 @@ let jsonLoaded = null;
 const imageReader = new FileReader();
 imageReader.onload = (event) => {
     imageLoaded = event.target.result;
-    if (jsonLoaded != null) sendData();
+    sendData();
 };
 
 const jsonReader = new FileReader();
 jsonReader.onload = (event) => {
     jsonLoaded = event.target.result;
-    if (imageLoaded != null) sendData();
+    sendData();
 }
 
-imageFileInput.onchange = (e)=>{
+imageFileInput.onchange = ()=>{
     if (imageFileInput.files.length==0){
         imagePreviewContainer.style["display"] = "none";
         imageUpload.style["display"] = "inherit";
@@ -41,10 +51,10 @@ imageFileInput.onchange = (e)=>{
         previewImageFilename.textContent = imageFileInput.files[0].name
     }
 }
-annotation.onchange=(e)=>{
+annotation.onchange=()=>{
     if (annotation.files.length==0){
-        annotationUpload.style["display"] = "none";
-        annotation.style["display"] = "inherit";
+        annotationPreviewContainer.style["display"] = "none";
+        annotationUpload.style["display"] = "inherit";
     }else{
         annotationPreviewContainer.style["display"] = "flex";
         annotationUpload.style["display"] = "none";
@@ -94,8 +104,9 @@ function drawBox(result) {
 }
 
 function sendData() {
-    console.log(imageLoaded);
-    console.log(jsonLoaded);
+    if (imageLoaded==null||jsonLoaded==null){
+        return
+    }
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/thing");
@@ -111,10 +122,11 @@ function sendData() {
             const data = JSON.parse(xhr.responseText);
             console.log(data["image"])
             imageResult.src = "data:image/jpeg;base64, " + data["image"]
-            // we get the returned data
+            legend.src = "data:image/jpeg;base64, " + data["legend_image"]
+            legend.style["display"]="inherit"
+            legendEmpty.style["display"] = "none"
             drawBox(data)
         }
-
     }
 
     imageLoaded = null;

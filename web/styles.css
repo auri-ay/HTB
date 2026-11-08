@@ -174,3 +174,11 @@
     display: flex;
     flex-direction: column;
   }
+  #legend{
+    display: none;
+    width: 100%;
+  }
+  #do-stuff div{
+    display: flex;
+    flex-direction: row;
+  }
