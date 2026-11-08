@@ -1,40 +1,4 @@
-"""Find where the interpreted lithology column of a mud-log image changes.
 
-Pass an image path to `analyse_image` and it will:
-  1. work out the depth scale (pixels per foot) from the numbers printed in the depth column,
-  2. crop the interpreted lithology column,
-  3. find every "island" (group of touching black pixels) in the column,
-  4. slide a window down the column and average the islands' size and x / y change in each window,
-  5. record each row's background colour,
-  6. find the rows where the column changes: big jumps in the black marks, or a new colour band.
-
-`plot_analysis` draws the column, its background colour, the three measurements and the change lines.
-`intervals` turns the change lines into stretches of column with their depths.
-
-This is the same method as col_to_feat.ipynb, with the same settings.
-Reading the depth numbers needs tesseract (`brew install tesseract`); without it the scale comes from the file name.
-
-`plot_all` does every image in a data folder and shows all the graphs.
-`interval_stats` gives one row per stretch between change lines, with its start / end row and the stats averaged over it.
-
-Example:
-    from lithology_changes import analyse_image, plot_analysis, intervals, plot_all, interval_stats
-
-    interval_stats("dataset/images/0000000009_d-582_0000020435-0001_log06_fe_5in_md.tif")   # a DataFrame
-
-    plot_all("dataset")                          # graphs for every image in dataset/images
-
-    analysis = analyse_image("dataset/images/0000000009_d-582_0000020435-0001_log06_fe_5in_md.tif")
-    print(analysis.change_ys)
-    plot_analysis(analysis)                      # whole column
-    plot_analysis(analysis, top=4400, bottom=7000)   # a close-up, in image rows
-    intervals(analysis)
-
-From the terminal:
-    python lithology_changes.py dataset                  # show the graphs for every image
-    python lithology_changes.py dataset --save graphs    # ...and save them as PNGs in graphs/
-    python lithology_changes.py dataset/images/<image>.tif
-"""
 from __future__ import annotations
 
 import json
@@ -44,7 +8,6 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -79,40 +42,14 @@ BAND_SHARE = 0.8                 # ...in at least this share of those rows (allo
 SLICE_HEIGHT = 5000              # read the depth column in slices this many pixels tall
 MIN_READINGS = 5                 # depth readings that must agree on one straight line
 
-# Graphs for a whole data folder
-LARGE_IMAGE = 20000              # columns taller than this (px) also get a close-up of their top
-CLOSE_UP_HEIGHT = 5000           # how many px the close-up shows
-IMAGE_TYPES = (".tif", ".tiff", ".png", ".jpg", ".jpeg")
-
-
-@dataclass
-class DepthScale:
-    pixels_per_foot: float
-    source: str                                  # where the scale came from
-    fit: tuple[float, float] | None = None       # row = fit[0] * depth + fit[1], when read from the depth numbers
-
-    def depth_at(self, row: float) -> float | None:
-        """The depth (ft) at an image row, if the depth numbers could be read."""
-        if self.fit is None:
-            return None
-        return (row - self.fit[1]) / self.fit[0]
-
 
 @dataclass
 class ColumnAnalysis:
-    name: str
-    image_path: Path
     boxes: dict                                  # depth_column, interpreted_lithology_column, lithology_legend
-    scale: DepthScale
-    window_height: int                           # pixels
-    band_rows: int                               # pixels
-    column: Image.Image = field(repr=False)      # the cropped lithology column (RGB)
+    pixels_per_foot: float
     row_colours: np.ndarray = field(repr=False)  # one background colour per column row
-    features: pd.DataFrame = field(repr=False)   # one row per window
     islands: dict = field(repr=False)            # every island's size, x / y change and centre row, top to bottom
-    change_ys: list[int] = field(default_factory=list)          # all change lines, in image rows
-    shape_change_ys: list[int] = field(default_factory=list)    # from the black marks
-    colour_change_ys: list[int] = field(default_factory=list)   # from the background colour
+    change_ys: list[int] = field(default_factory=list)   # change lines, in image rows
 
 
 def load_boxes(image_path: str | Path, annotation_dir: str | Path = "dataset/bbox_annotation") -> dict:
@@ -179,7 +116,7 @@ def agreeing_readings(readings: list[tuple[float, int]]) -> list[tuple[float, in
     return best
 
 
-def depth_scale(image: Image.Image, depth_box: Box, name: str) -> DepthScale:
+def depth_scale(image: Image.Image, depth_box: Box, name: str) -> float:
     """Pixels per foot, from the depth numbers in the depth column.
     If too few can be read, use the file name: a depth range (e.g. "3346ft-13925ft") or a scale (e.g. "5in").
     Failing that, assume a 5-inch log."""
@@ -195,18 +132,16 @@ def depth_scale(image: Image.Image, depth_box: Box, name: str) -> DepthScale:
                 break
 
     if len(best) >= MIN_READINGS:
-        slope, intercept = np.polyfit([d for _, d in best], [y for y, _ in best], 1)
-        return DepthScale(float(slope), f"depth numbers ({len(best)} readings agree)", (float(slope), float(intercept)))
+        return float(np.polyfit([d for _, d in best], [y for y, _ in best], 1)[0])
 
     dpi = float(image.info.get("dpi", (200, 200))[0])
     depth_range = re.search(r"(\d{3,5})\s*(?:ft)?\s*-\s*(\d{3,5})\s*ft", name, re.I)
     scale_in_name = re.search(r"(\d)\s*-?\s*in", name, re.I) or re.search(r"(?:md|tvd)(\d)(?!\d)", name, re.I)
     if depth_range:
-        feet = int(depth_range.group(2)) - int(depth_range.group(1))
-        return DepthScale((depth_box[3] - depth_box[1]) / feet, f"depth range in file name ({depth_range.group(0)})")
+        return (depth_box[3] - depth_box[1]) / (int(depth_range.group(2)) - int(depth_range.group(1)))
     if scale_in_name:
-        return DepthScale(dpi * int(scale_in_name.group(1)) / 100, f"scale in file name at {dpi:.0f} dpi")
-    return DepthScale(dpi * 5 / 100, f"assumed 5-inch log at {dpi:.0f} dpi")
+        return dpi * int(scale_in_name.group(1)) / 100
+    return dpi * 5 / 100
 
 
 # ---------------------------------------------------------------- measuring the column
@@ -267,7 +202,7 @@ def filtered_mean(values: np.ndarray) -> float:
 
 def window_features(islands: dict[str, np.ndarray], column_height: int, window_height: int, column_top: int) -> pd.DataFrame:
     """Slide a window down the column and average the islands whose centre is inside it.
-    One row per window, with Top Y / Bottom Y in image rows."""
+    One row per window, with its Bottom Y in image rows."""
     window_tops = np.arange(0, max(column_height - window_height, 0) + 1, window_height / WINDOW_STEPS)
     results = []
     for window_top in window_tops:
@@ -281,9 +216,7 @@ def window_features(islands: dict[str, np.ndarray], column_height: int, window_h
         else:
             mean_size = mean_x_change = mean_y_change = 0
         results.append({
-            "Top Y": column_top + round(window_top),
             "Bottom Y": column_top + round(window_bottom),
-            "Islands": int(last - first),
             "Mean Size": mean_size,
             "Mean X Change": mean_x_change,
             "Mean Y Change": mean_y_change,
@@ -359,43 +292,22 @@ def analyse_image(image_path: str | Path, boxes: dict | None = None,
     boxes: the image's bounding boxes (depth_column, interpreted_lithology_column, ...); if not given,
     they are read from the annotation JSON with the same name in annotation_dir."""
     image_path = Path(image_path)
-    name = image_path.stem
     boxes = boxes if boxes is not None else load_boxes(image_path, annotation_dir)
     column_box = boxes["interpreted_lithology_column"]
 
     image = Image.open(image_path)
-    scale = depth_scale(image, boxes["depth_column"], name)
-    window_height = max(round(WINDOW_FEET * scale.pixels_per_foot), MIN_WINDOW_PX)
-    band_rows = max(round(MIN_BAND_FEET * scale.pixels_per_foot), MIN_BAND_PX)
+    pixels_per_foot = depth_scale(image, boxes["depth_column"], image_path.stem)
+    window_height = max(round(WINDOW_FEET * pixels_per_foot), MIN_WINDOW_PX)
+    band_rows = max(round(MIN_BAND_FEET * pixels_per_foot), MIN_BAND_PX)
 
     column = crop_rgb(image, column_box)
     colours = row_colours(column)
     islands = find_islands(column)
     features = window_features(islands, column.height, window_height, column_box[1])
 
-    shape_change_ys = shape_changes(features)
-    colour_change_ys = colour_changes(colours, band_rows, column_box[1])
-    change_ys = combine_changes(colour_change_ys, shape_change_ys, window_height)
-
-    return ColumnAnalysis(name=name, image_path=image_path, boxes=boxes, scale=scale,
-                          window_height=window_height, band_rows=band_rows, column=column,
-                          row_colours=colours, features=features, islands=islands, change_ys=change_ys,
-                          shape_change_ys=shape_change_ys, colour_change_ys=colour_change_ys)
-
-
-def intervals(analysis: ColumnAnalysis) -> pd.DataFrame:
-    """The stretches of column between change lines, with their image rows and (if known) depths."""
-    column_box = analysis.boxes["interpreted_lithology_column"]
-    edges = [column_box[1]] + [y for y in analysis.change_ys if column_box[1] < y < column_box[3]] + [column_box[3]]
-    rows = []
-    for top_y, bottom_y in zip(edges[:-1], edges[1:]):
-        rows.append({
-            "top_y": top_y,
-            "bottom_y": bottom_y,
-            "top_depth": analysis.scale.depth_at(top_y),
-            "bottom_depth": analysis.scale.depth_at(bottom_y),
-        })
-    return pd.DataFrame(rows)
+    change_ys = combine_changes(colour_changes(colours, band_rows, column_box[1]), shape_changes(features), window_height)
+    return ColumnAnalysis(boxes=boxes, pixels_per_foot=pixels_per_foot, row_colours=colours,
+                          islands=islands, change_ys=change_ys)
 
 
 def interval_stats(image: str | Path | ColumnAnalysis, boxes: dict | None = None,
@@ -426,7 +338,7 @@ def interval_stats(image: str | Path | ColumnAnalysis, boxes: dict | None = None
         else:
             mean_size = mean_x_change = mean_y_change = 0
         background = analysis.row_colours[start_y - column_top:end_y - column_top].mean(axis=0)
-        feet = (end_y - start_y) / analysis.scale.pixels_per_foot
+        feet = (end_y - start_y) / analysis.pixels_per_foot
 
         rows.append({
             "Start Y": start_y,
@@ -441,109 +353,3 @@ def interval_stats(image: str | Path | ColumnAnalysis, boxes: dict | None = None
             "Background B": background[2],
         })
     return pd.DataFrame(rows)
-
-
-def plot_analysis(analysis: ColumnAnalysis, top: int | None = None, bottom: int | None = None) -> plt.Figure:
-    """The column, its background colour, the three measurements and the change lines (red).
-    top / bottom (image rows) zoom in on part of the column; by default the whole column is shown."""
-    column_box = analysis.boxes["interpreted_lithology_column"]
-    top = column_box[1] if top is None else max(top, column_box[1])
-    bottom = column_box[3] if bottom is None else min(bottom, column_box[3])
-
-    column_part = analysis.column.crop((0, top - column_box[1], analysis.column.width, bottom - column_box[1]))
-    if column_part.height > 4000:                     # shrink very tall stretches so plotting stays fast
-        column_part = column_part.resize((column_part.width, 4000))
-    colours_part = analysis.row_colours[top - column_box[1]:bottom - column_box[1]]
-    features = analysis.features
-    features_part = features[(features["Top Y"] >= top) & (features["Top Y"] < bottom)]
-    changes_part = [y for y in analysis.change_ys if top <= y <= bottom]
-
-    fig, axes = plt.subplots(1, 5, figsize=(15, 8), sharey=True, gridspec_kw={"width_ratios": [1, 1, 3, 3, 3]})
-    axes[0].imshow(column_part, extent=[0, 1, bottom, top], aspect="auto")
-    axes[0].set_xticks([])
-    axes[0].set_xlabel("Column")
-    axes[0].set_ylabel("Top Y (px)")
-
-    axes[1].imshow(colours_part[:, None, :] / 255, extent=[0, 1, bottom, top], aspect="auto")
-    axes[1].set_xticks([])
-    axes[1].set_xlabel("Background")
-
-    for ax, measure in zip(axes[2:], MEASURES):
-        ax.plot(features_part[measure], features_part["Top Y"])
-        ax.set_xlabel(f"{measure} (px)")
-
-    for ax in axes:
-        for change_y in changes_part:
-            ax.axhline(change_y, color="red", linewidth=0.8)
-
-    axes[0].set_ylim(bottom, top)                     # top of the column at the top, like the image
-    zoomed = (top, bottom) != (column_box[1], column_box[3])
-    where = f" (rows {top}-{bottom})" if zoomed else ""
-    fig.suptitle(f"{analysis.name}{where}: {len(changes_part)} big changes")
-    return fig
-
-
-def image_and_annotation_dirs(data_path: str | Path) -> tuple[Path, Path]:
-    """Accept either the data folder (with images/ and bbox_annotation/ inside) or its images folder."""
-    data_path = Path(data_path)
-    if (data_path / "images").is_dir():
-        return data_path / "images", data_path / "bbox_annotation"
-    return data_path, data_path.parent / "bbox_annotation"
-
-
-def plot_all(data_path: str | Path = "dataset", close_ups: bool = True, save_dir: str | Path | None = None) -> dict[str, list[int]]:
-    """Analyse every image in a data folder and show its graphs: the whole column, plus a full-resolution
-    close-up of the top of large images. Images without an annotation are skipped.
-    save_dir: also save each graph there as a PNG. Returns each image's change lines (image rows)."""
-    image_dir, annotation_dir = image_and_annotation_dirs(data_path)
-    image_paths = sorted(p for p in image_dir.iterdir() if p.suffix.lower() in IMAGE_TYPES)
-    if save_dir is not None:
-        Path(save_dir).mkdir(parents=True, exist_ok=True)
-
-    all_change_ys = {}
-    for number, image_path in enumerate(image_paths, start=1):
-        if not (annotation_dir / f"{image_path.stem}.json").exists():
-            print(f"{number}/{len(image_paths)} {image_path.stem}: no annotation, skipped")
-            continue
-
-        analysis = analyse_image(image_path, annotation_dir=annotation_dir)
-        all_change_ys[analysis.name] = analysis.change_ys
-        print(f"{number}/{len(image_paths)} {analysis.name}: {analysis.scale.pixels_per_foot:.2f} px/ft "
-              f"({analysis.scale.source}), {len(analysis.change_ys)} changes")
-
-        column_box = analysis.boxes["interpreted_lithology_column"]
-        charts = [("whole column", None, None)]
-        if close_ups and column_box[3] - column_box[1] > LARGE_IMAGE:
-            charts.append((f"top {CLOSE_UP_HEIGHT} px", column_box[1], column_box[1] + CLOSE_UP_HEIGHT))
-
-        for chart_name, top, bottom in charts:
-            fig = plot_analysis(analysis, top, bottom)
-            if save_dir is not None:
-                fig.savefig(Path(save_dir) / f"{analysis.name} ({chart_name}).png", dpi=100)
-            plt.show()
-            plt.close(fig)                            # free the memory once it's been shown
-    return all_change_ys
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Find and graph lithology changes in mud-log images.")
-    parser.add_argument("paths", nargs="+", help="a data folder (with images/ and bbox_annotation/), an images folder, or image files")
-    parser.add_argument("--save", metavar="FOLDER", help="also save the graphs as PNGs in this folder")
-    args = parser.parse_args()
-
-    for path in map(Path, args.paths):
-        if path.is_dir():
-            plot_all(path, save_dir=args.save)
-            continue
-
-        result = analyse_image(path, annotation_dir=image_and_annotation_dirs(path.parent)[1])
-        print(f"{result.name}: {result.scale.pixels_per_foot:.2f} px/ft from {result.scale.source}; "
-              f"window {result.window_height}px, band {result.band_rows}px; {len(result.change_ys)} changes")
-        print(interval_stats(result).round(2).to_string(index=False))
-        figure = plot_analysis(result)
-        if args.save:
-            Path(args.save).mkdir(parents=True, exist_ok=True)
-            figure.savefig(Path(args.save) / f"{result.name}.png", dpi=100)
-        plt.show()
