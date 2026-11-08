@@ -18,15 +18,3 @@ def post_body_from_json(json_body: dict[str, Any])->PostBody:
     f = tempfile.NamedTemporaryFile()
     f.write(img)
     return PostBody(annotation=annotation_from_json(json.loads(json_body["annotation"])), image=f)
-
-class ResultRow(TypedDict):
-    top_depth: int
-    bottom_depth: int
-    lithology: str
-    top_y: int
-    bottom_y: int
-    cluster_id: int
-
-class Response(TypedDict):
-    image: str
-    result: list[ResultRow]
