@@ -1,7 +1,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 import tempfile
@@ -12,7 +11,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-from bbox_annotation import Box, annotation_from_json
+from bbox_annotation import Annotation, BoundingBox
 from tool import crop_rgb
 
 Image.MAX_IMAGE_PIXELS = None    # the logs are very tall
@@ -54,17 +53,9 @@ class ColumnAnalysis:
     change_ys: list[int] = field(default_factory=list)   # change lines, in image rows
 
 
-def load_boxes(image_path: str | Path, annotation_dir: str | Path = "dataset/bbox_annotation") -> dict:
-    """The bounding boxes for an image, from the annotation JSON with the same name."""
-    annotation_path = Path(annotation_dir) / f"{Path(image_path).stem}.json"
-    with open(annotation_path) as f:
-        annotation = annotation_from_json(json.load(f))
-    return dict(annotation["bounding_boxs"])
-
-
 # ---------------------------------------------------------------- depth scale
 
-def read_depth_numbers(image: Image.Image, depth_box: Box, slice_top: int, slice_bottom: int, work_dir: str) -> list[tuple[float, int]]:
+def read_depth_numbers(image: Image.Image, depth_box: BoundingBox, slice_top: int, slice_bottom: int, work_dir: str) -> list[tuple[float, int]]:
     """(image row, depth) for each depth number tesseract can read in one slice of the depth column.
     The numbers may be upright or printed sideways, so each way round is tried and the best kept."""
     depth_slice = crop_rgb(image, (depth_box[0], slice_top, depth_box[2], slice_bottom)).convert("L")
@@ -118,7 +109,7 @@ def agreeing_readings(readings: list[tuple[float, int]]) -> list[tuple[float, in
     return best
 
 
-def depth_scale(image: Image.Image, depth_box: Box, name: str) -> float:
+def depth_scale(image: Image.Image, depth_box: BoundingBox, name: str) -> float:
     """Pixels per foot, from the depth numbers in the depth column.
     If too few can be read, use the file name: a depth range (e.g. "3346ft-13925ft") or a scale (e.g. "5in").
     Failing that, assume a 5-inch log."""
@@ -305,17 +296,12 @@ def combine_changes(colour_change_ys: list[int], shape_change_ys: list[int], win
 
 # ---------------------------------------------------------------- putting it together
 
-def analyse_image(image_path: str | Path, boxes: dict | None = None,
-                  annotation_dir: str | Path = "dataset/bbox_annotation") -> ColumnAnalysis:
-    """Run the whole method on one image.
-    boxes: the image's bounding boxes (depth_column, interpreted_lithology_column, ...); if not given,
-    they are read from the annotation JSON with the same name in annotation_dir."""
-    image_path = Path(image_path)
-    boxes = boxes if boxes is not None else load_boxes(image_path, annotation_dir)
+def analyse_image(image: Image.Image, annotation: Annotation) -> ColumnAnalysis:
+    """Run the whole method on one image, using its annotation (from bbox_annotation.annotation_from_json)."""
+    boxes = dict(annotation["bounding_boxs"])
     column_box = boxes["interpreted_lithology_column"]
 
-    image = Image.open(image_path)
-    pixels_per_foot = depth_scale(image, boxes["depth_column"], image_path.stem)
+    pixels_per_foot = depth_scale(image, boxes["depth_column"], Path(annotation["image_name"]).stem)
     window_height = max(round(WINDOW_FEET * pixels_per_foot), MIN_WINDOW_PX)
     band_rows = max(round(MIN_BAND_FEET * pixels_per_foot), MIN_BAND_PX)
 
@@ -329,16 +315,15 @@ def analyse_image(image_path: str | Path, boxes: dict | None = None,
                           islands=islands, change_ys=change_ys)
 
 
-def interval_stats(image: str | Path | ColumnAnalysis, boxes: dict | None = None,
-                   annotation_dir: str | Path = "dataset/bbox_annotation") -> pd.DataFrame:
+def interval_stats(image: Image.Image, annotation: Annotation) -> pd.DataFrame:
     """One row per stretch of column between change lines: where it starts and ends (image rows), then the
     measurements averaged over that stretch:
       Island Count, Islands Per Foot            - islands centred in the stretch, in total and per foot of depth
       Mean Size, Mean X Change, Mean Y Change   - of those islands, ignoring values more than MAX_STDS standard
                                                   deviations from the mean (0 if there are no islands)
       Background R, Background G, Background B  - the average of the stretch's row colours
-    image: an image path (it is analysed first) or a ColumnAnalysis you already have."""
-    analysis = image if isinstance(image, ColumnAnalysis) else analyse_image(image, boxes, annotation_dir)
+    annotation: the image's annotation, from bbox_annotation.annotation_from_json."""
+    analysis = analyse_image(image, annotation)
     column_box = analysis.boxes["interpreted_lithology_column"]
     column_top = column_box[1]
     islands = analysis.islands
