@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lithology Extractor</title>
+  <link rel="stylesheet" href="styles.css"></head>
+<body>
+
+<header>
+  <h1>Lithology Extractor</h1>
+  <div class="trail"></div>
+  <svg class="cat" viewBox="0 0 18 12" shape-rendering="crispEdges" aria-hidden="true">
+    <rect x="2" y="1" width="11" height="9" fill="#000"/>
+    <rect x="3" y="2" width="9" height="7" fill="#ffcc99"/>
+    <rect x="4" y="3" width="7" height="5" fill="#ff99ff"/>
+    <rect x="5" y="4" width="1" height="1" fill="#ff3399"/>
+    <rect x="9" y="3" width="1" height="1" fill="#ff3399"/>
+    <rect x="8" y="6" width="1" height="1" fill="#ff3399"/>
+    <rect x="5" y="7" width="1" height="1" fill="#ff3399"/>
+    <rect x="11" y="3" width="6" height="6" fill="#000"/>
+    <rect x="11" y="2" width="2" height="1" fill="#000"/>
+    <rect x="15" y="2" width="2" height="1" fill="#000"/>
+    <rect x="12" y="4" width="4" height="4" fill="#999"/>
+    <rect x="12" y="5" width="1" height="1" fill="#000"/>
+    <rect x="15" y="5" width="1" height="1" fill="#000"/>
+    <rect x="13" y="7" width="2" height="1" fill="#ff99ff"/>
+    <rect x="3" y="10" width="2" height="2" fill="#000"/>
+    <rect x="9" y="10" width="2" height="2" fill="#000"/>
+    <rect x="12" y="9" width="2" height="2" fill="#000"/>
+  </svg>
+</header>
+
+<main>
+  <section>
+    <div class="panel">
+      <h2>1. Image</h2>
+      <label class="file">
+        <input type="file" id="image-file-input" accept="image/*,.tif,.tiff">
+        <span id="image-file-name">Choose an image (TIFF, PNG or JPG)</span>
+      </label>
+    </div>
+
+    <div class="panel">
+      <h2>2. Annotation</h2>
+      <label class="file">
+        <input type="file" id="annotation-file-input" accept=".json">
+        <span id="annotaion-file-name">Choose an image (TIFF, PNG or JPG)</span>
+      </label>
+    </div>
+
+    <div class="panel">
+      <h2>3. Do stuff</h2>
+      <button id="do-stuff">BIG RED BUTTON</button>
+    </div>
+
+    <div class="panel" id="preview-panel" hidden>
+      <h2>Preview</h2>
+      <div class="scroll">
+        <div class="canvas" id="canvas">
+          <img id="preview" draggable="false" alt="Document preview">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel" id="empty">
+      <h2>Results</h2>
+      <div id="result">
+        <div id="image-container">
+          <img id="image-result" alt="result">
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
