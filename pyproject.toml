@@ -21,7 +21,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pyuwsgi>=2.0.30.post1",
     "ruff>=0.17.4",
 ]
 
