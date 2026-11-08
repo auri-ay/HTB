@@ -4,7 +4,7 @@ from typing import TypedDict, NamedTuple, Any
 import pandas as pd
 from PIL import Image
 
-from bbox_annotation import Annotation, Box
+from bbox_annotation import Annotation, BoundingBox
 
 
 class TableRow(TypedDict):

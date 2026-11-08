@@ -2,24 +2,29 @@ import pathlib
 from typing import TypedDict, Any, NamedTuple
 
 
-class Box(NamedTuple):
-    x1: int
-    y1: int
-    x2: int
-    y2: int
+class BoundingBox(NamedTuple):
+    minX: int
+    minY: int
+    maxX: int
+    maxY: int
+    @property
+    def w(self): return self.maxX - self.minX
+    @property
+    def h(self): return self.maxY - self.minY
+    @property
+    def cy(self): return (self.minY + self.maxY) / 2
 
-
-class BoundingBox(TypedDict):
-    depth_column: Box
-    interpreted_lithology_column: Box
-    lithology_legend: Box
+class BoundingBoxes(TypedDict):
+    depth_column: BoundingBox
+    interpreted_lithology_column: BoundingBox
+    lithology_legend: BoundingBox
 
 
 class Annotation(TypedDict):
     image_name: str
     width: int
     height: int
-    bounding_boxs: BoundingBox
+    bounding_boxs: BoundingBoxes
 
 
 class TableRow(TypedDict):
@@ -28,10 +33,10 @@ class TableRow(TypedDict):
     height: int
 
 
-def bounding_box_from_json(json: dict[str, Any]) -> BoundingBox:
-    return BoundingBox(depth_column=Box(*json["depth_column"]),
-                       interpreted_lithology_column=Box(*json["interpreted_lithology_column"]),
-                       lithology_legend=Box(*json["lithology_legend"]))
+def bounding_box_from_json(json: dict[str, Any]) -> BoundingBoxes:
+    return BoundingBoxes(depth_column=BoundingBox(*json["depth_column"]),
+                         interpreted_lithology_column=BoundingBox(*json["interpreted_lithology_column"]),
+                         lithology_legend=BoundingBox(*json["lithology_legend"]))
 
 
 def annotation_from_json(json: dict[str, Any]) -> Annotation:

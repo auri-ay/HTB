@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-from bbox_annotation import Box, annotation_from_json
+from bbox_annotation import BoundingBox, annotation_from_json
 from tool import crop_rgb
 
 Image.MAX_IMAGE_PIXELS = None    # the logs are very tall
@@ -62,7 +62,7 @@ def load_boxes(image_path: str | Path, annotation_dir: str | Path = "dataset/bbo
 
 # ---------------------------------------------------------------- depth scale
 
-def read_depth_numbers(image: Image.Image, depth_box: Box, slice_top: int, slice_bottom: int, work_dir: str) -> list[tuple[float, int]]:
+def read_depth_numbers(image: Image.Image, depth_box: BoundingBox, slice_top: int, slice_bottom: int, work_dir: str) -> list[tuple[float, int]]:
     """(image row, depth) for each depth number tesseract can read in one slice of the depth column.
     The numbers may be upright or printed sideways, so each way round is tried and the best kept."""
     depth_slice = crop_rgb(image, (depth_box[0], slice_top, depth_box[2], slice_bottom)).convert("L")
@@ -116,7 +116,7 @@ def agreeing_readings(readings: list[tuple[float, int]]) -> list[tuple[float, in
     return best
 
 
-def depth_scale(image: Image.Image, depth_box: Box, name: str) -> float:
+def depth_scale(image: Image.Image, depth_box: BoundingBox, name: str) -> float:
     """Pixels per foot, from the depth numbers in the depth column.
     If too few can be read, use the file name: a depth range (e.g. "3346ft-13925ft") or a scale (e.g. "5in").
     Failing that, assume a 5-inch log."""
