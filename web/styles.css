@@ -1,0 +1,145 @@
+  :root {
+    --space: #0b1b4a;
+    --paper: #fdf6ff;
+    --ink: #1a1030;
+    --pink: #ff3399;
+    --pink-soft: #ff99ff;
+    --muted: #5b4b7a;
+    --stripes: linear-gradient(to bottom,
+      #ff0000 0 16.66%, #ff9900 0 33.33%, #ffff00 0 50%,
+      #33ff00 0 66.66%, #0099ff 0 83.33%, #6633ff 0);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    color: var(--ink);
+    font: 14px/1.45 Verdana, Tahoma, sans-serif;
+    background-color: var(--space);
+    background-image:
+      radial-gradient(1px 1px at 20px 30px, #fff 50%, transparent 51%),
+      radial-gradient(1px 1px at 90px 80px, #fff 50%, transparent 51%),
+      radial-gradient(2px 2px at 140px 20px, #cdf 50%, transparent 51%),
+      radial-gradient(1px 1px at 60px 130px, #fff 50%, transparent 51%);
+    background-size: 160px 160px;
+  }
+
+  /* header */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 24px;
+    border-bottom: 4px solid #000;
+    background: var(--space);
+  }
+  h1 {
+    margin: 0;
+    font: bold 26px Trebuchet MS, Verdana, sans-serif;
+    color: #fff;
+    text-shadow: 3px 3px 0 var(--pink);
+    white-space: nowrap;
+  }
+  .trail {
+    flex: 1;
+    height: 30px;
+    background: var(--stripes);
+    border-block: 2px solid #000;
+  }
+  .cat { width: 68px; margin-left: -16px; image-rendering: pixelated; animation: bob .5s steps(1) infinite; }
+  @keyframes bob { 50% { transform: translateY(-3px); } }
+  @media (prefers-reduced-motion: reduce) { .cat { animation: none; } }
+
+  /* layout */
+  main {
+    display: grid;
+    grid-template-columns: 460px 1fr;
+    gap: 20px;
+    padding: 20px 24px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; padding: 16px; } }
+
+  .panel {
+    margin-bottom: 20px;
+    padding: 14px;
+    background: var(--paper);
+    border: 3px solid #000;
+    box-shadow: 5px 5px 0 var(--pink);
+  }
+  h2 { margin: 0 0 10px; font: bold 15px Trebuchet MS, Verdana, sans-serif; }
+  .hint { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+
+  /* controls */
+  button {
+    font: inherit;
+    padding: 4px 12px;
+    color: var(--ink);
+    background: #e6dcf5;
+    border: 2px outset #fff;
+    cursor: pointer;
+  }
+  button:active { border-style: inset; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
+  button.active { background: var(--pink-soft); font-weight: bold; }
+  button.run { background: var(--pink); color: #fff; font-weight: bold; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  .picker { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+  .file {
+    display: block;
+    padding: 16px;
+    text-align: center;
+    color: var(--muted);
+    border: 2px dashed var(--muted);
+    cursor: pointer;
+  }
+  .file input { display: none; }
+
+  .box { display: grid; grid-template-columns: 76px repeat(4, 1fr); gap: 4px; align-items: center; margin-bottom: 4px; }
+  .box input {
+    width: 100%;
+    padding: 3px 4px;
+    font: inherit;
+    color: var(--ink);
+    background: #fff;
+    border: 2px inset #ccc;
+  }
+
+  .error { margin-left: 8px; color: #c00000; }
+
+  /* preview */
+  .scroll { max-height: 620px; overflow: auto; background: #fff; border: 2px inset #ccc; }
+  .canvas { position: relative; width: 800px; cursor: crosshair; user-select: none; }
+  .canvas img { display: block; width: 800px; }
+  .sel { position: absolute; border: 2px solid; pointer-events: none; }
+  .sel span { position: absolute; top: -17px; left: -2px; padding: 0 4px; font-size: 11px; color: #fff; }
+
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 3px 8px; text-align: right; border-bottom: 1px solid #d8c9ee; }
+  th { position: sticky; top: 0; background: #e6dcf5; }
+  th:nth-child(3), td:nth-child(3) { text-align: left; }
+  tbody tr:nth-child(even) { background: #f4eafc; }
+
+  ul { margin: 0; padding-left: 18px; }
+  [hidden] { display: none !important; }
+
+  #result {
+    justify-content: center;
+    display: flex;
+  }
+
+  #image-container{
+    position: relative;
+  }
+  .box{
+    width: 100%;
+    border: #c00000 solid 8px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    outline-offset: 8px;
+  }
