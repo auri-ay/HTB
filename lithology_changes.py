@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
-from bbox_annotation import BoundingBox, annotation_from_json
+from bbox_annotation import Box, annotation_from_json
 from tool import crop_rgb
 
 Image.MAX_IMAGE_PIXELS = None    # the logs are very tall
@@ -21,6 +21,8 @@ Image.MAX_IMAGE_PIXELS = None    # the logs are very tall
 BLACK_CUTOFF = 40 * 3            # a pixel is black if r + g + b is below this
 NEIGHBOURS = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 MAX_STDS = 2                     # ignore values more than this many standard deviations from a window's mean
+GREY_SYMBOL_SHARE = 0.4          # if black is less than this share of a column's dark pixels, its symbols are drawn in grey...
+GREY_INK_BRIGHTNESS = 0.75       # ...and any pixel darker than this fraction of its row's background brightness is a symbol
 
 # Sliding window
 WINDOW_FEET = 5                  # window height in feet
@@ -62,7 +64,7 @@ def load_boxes(image_path: str | Path, annotation_dir: str | Path = "dataset/bbo
 
 # ---------------------------------------------------------------- depth scale
 
-def read_depth_numbers(image: Image.Image, depth_box: BoundingBox, slice_top: int, slice_bottom: int, work_dir: str) -> list[tuple[float, int]]:
+def read_depth_numbers(image: Image.Image, depth_box: Box, slice_top: int, slice_bottom: int, work_dir: str) -> list[tuple[float, int]]:
     """(image row, depth) for each depth number tesseract can read in one slice of the depth column.
     The numbers may be upright or printed sideways, so each way round is tried and the best kept."""
     depth_slice = crop_rgb(image, (depth_box[0], slice_top, depth_box[2], slice_bottom)).convert("L")
@@ -116,7 +118,7 @@ def agreeing_readings(readings: list[tuple[float, int]]) -> list[tuple[float, in
     return best
 
 
-def depth_scale(image: Image.Image, depth_box: BoundingBox, name: str) -> float:
+def depth_scale(image: Image.Image, depth_box: Box, name: str) -> float:
     """Pixels per foot, from the depth numbers in the depth column.
     If too few can be read, use the file name: a depth range (e.g. "3346ft-13925ft") or a scale (e.g. "5in").
     Failing that, assume a 5-inch log."""
@@ -156,10 +158,24 @@ def row_colours(column: Image.Image) -> np.ndarray:
     return np.nanmedian(pixels, axis=1)
 
 
-def find_islands(column: Image.Image) -> dict[str, np.ndarray]:
-    """Every island (group of touching black pixels) in the column, sorted top to bottom.
-    Returns arrays of each island's size (pixels), x change, y change and centre row (within the column)."""
-    black = np.array(column).sum(axis=2) < BLACK_CUTOFF
+def ink_mask(column: Image.Image, colours: np.ndarray | None = None) -> np.ndarray:
+    """The pixels that are part of a symbol. Normally that's the black pixels. But if black is less than
+    GREY_SYMBOL_SHARE of the column's dark pixels, its symbols are drawn in grey or colour, so any pixel
+    clearly darker than its row's background counts. colours: the column's row_colours, if already worked out."""
+    colours = row_colours(column) if colours is None else colours
+    brightness = np.array(column).astype(np.int32).sum(axis=2)
+    black = brightness < BLACK_CUTOFF
+    darker = brightness < colours.sum(axis=1)[:, None] * GREY_INK_BRIGHTNESS
+    if black.sum() >= GREY_SYMBOL_SHARE * (black | darker).sum():
+        return black
+    return black | darker
+
+
+def find_islands(column: Image.Image, ink: np.ndarray | None = None) -> dict[str, np.ndarray]:
+    """Every island (group of touching symbol pixels, normally black) in the column, sorted top to bottom.
+    Returns arrays of each island's size (pixels), x change, y change and centre row (within the column).
+    ink: the column's ink_mask, if already worked out."""
+    black = ink_mask(column) if ink is None else ink
     height, width = black.shape
     unvisited = black.tolist()
     sizes, x_changes, y_changes, centre_ys = [], [], [], []
@@ -260,8 +276,11 @@ def colour_changes(colours: np.ndarray, band_rows: int, column_top: int) -> list
     """Rows where a new background colour band starts: a row far from the current band's colour,
     as long as most of the next band_rows rows keep the new colour."""
     change_ys = []
-    band_colour = colours[0]
-    y = 1
+    start = 0
+    while start < min(band_rows, len(colours) - 1) and not colours[start].any():
+        start += 1                                    # skip the column's black top frame
+    band_colour = colours[start]
+    y = start + 1
     while y < len(colours):
         if np.linalg.norm(colours[y] - band_colour) > COLOUR_CHANGE:
             next_rows = colours[y:y + band_rows]
@@ -302,7 +321,7 @@ def analyse_image(image_path: str | Path, boxes: dict | None = None,
 
     column = crop_rgb(image, column_box)
     colours = row_colours(column)
-    islands = find_islands(column)
+    islands = find_islands(column, ink_mask(column, colours))
     features = window_features(islands, column.height, window_height, column_box[1])
 
     change_ys = combine_changes(colour_changes(colours, band_rows, column_box[1]), shape_changes(features), window_height)
